@@ -1,11 +1,13 @@
 // jshint asi:true
 
-const express    = require('express')
-const bodyParser = require('body-parser')
-const pg         = require('pg')
-const app        = express()
-const client     = require('./database/client')
-const sessions   = require('client-sessions')
+const express        = require('express')
+const bodyParser     = require('body-parser')
+const pg             = require('pg')
+const app            = express()
+const client         = require('./database/client')
+const sessions       = require('client-sessions')
+const { findUser,
+        createUser } = require('./database/queries')
 
 
 app.set('view engine', 'pug')
@@ -54,7 +56,7 @@ app.get('/login', (req, res) => {
 })
 
 app.post('/login', (req, res) => {
-  // TODO:
+  findUser(req.body)
   client.query(
     `
       SELECT
@@ -82,7 +84,7 @@ app.get('/dashboard', (req, res, next) => {
   if (!(req.session && req.session.userId)) {
     return res.redirect('/login')
   }
-
+  findUser(req.session)
   client.query(
     `
       SELECT

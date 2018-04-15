@@ -4,7 +4,6 @@ const express        = require('express')
 const bodyParser     = require('body-parser')
 const pg             = require('pg')
 const app            = express()
-const client         = require('./database/client')
 const sessions       = require('client-sessions')
 const { findUser,
         createUser } = require('./database/queries')
@@ -29,17 +28,7 @@ app.get('/register', (req, res) => {
 })
 
 app.post('/register', (req, res) => {
-  let user = req.body
-
-  client.query(
-    `
-    INSERT INTO
-      users (firstName, lastName, email, password)
-    VALUES
-      ($1, $2, $3, $4)
-    `,
-    [req.body.firstName, req.body.lastName, req.body.email, req.body.password])
-  .then(
+  createUser(req.body).then(
     results => res.redirect('/dashboard'),
     error => {
       if (error.code == "23505") {
@@ -56,17 +45,10 @@ app.get('/login', (req, res) => {
 })
 
 app.post('/login', (req, res) => {
-  findUser(req.body)
-  client.query(
-    `
-      SELECT
-        *
-      FROM
-        users
-      WHERE
-        email = $1
-    `, [req.body.email]
-  ).then(
+  findUser({
+    type: 'email',
+    value: req.body.email
+  }).then(
     results => {
       if (results.rows.length == 0 || results.rows[0].password !== req.body.password) {
         return res.render('login', {error: 'Incorrect Email / Password'})
@@ -84,20 +66,17 @@ app.get('/dashboard', (req, res, next) => {
   if (!(req.session && req.session.userId)) {
     return res.redirect('/login')
   }
-  findUser(req.session)
-  client.query(
-    `
-      SELECT
-        *
-      FROM
-        users
-      WHERE
-        id = $1
-    `, [req.session.userId]
-  ).then(
-    results => res.render('dashboard'),
+  findUser({
+    type: 'id',
+    value: req.session.userId
+  }).then(
+
+    results => {
+      console.log(`${results.rows[0].firstname} has logged in`)
+      return res.render('dashboard')
+    },
     error => {
-      return next(error)
+      return res.render('login', {error: error})
     }
   )
 })

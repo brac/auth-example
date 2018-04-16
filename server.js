@@ -5,6 +5,7 @@ const bodyParser     = require('body-parser')
 const pg             = require('pg')
 const app            = express()
 const sessions       = require('client-sessions')
+const bcrypt         = require('bcryptjs')
 const { findUser,
         createUser } = require('./database/queries')
 
@@ -50,22 +51,25 @@ app.post('/login', (req, res) => {
     value: req.body.email
   }).then(
     results => {
-      if (results.rows.length == 0 || results.rows[0].password !== req.body.password) {
-        return res.render('login', {error: 'Incorrect Email / Password'})
-      }
-      req.session.userId = results.rows[0].id
-      return res.redirect('/dashboard')
+      if (results.rows.length==0) { return res.render('login', {error: 'Incorrect Email / Password'}) }
+
+      bcrypt.compare(req.body.password, results.rows[0].password).then(
+        compared => {
+          if (!compared) {return res.render('login', {error: 'Incorrect Password'})}
+
+          req.session.userId = results.rows[0].id
+          return res.redirect('/dashboard')
+        },
+        error => res.render('login', { error: error })
+      )
     },
-    error => {
-      return res.render('login', {error: error})
-    }
+    error => res.render('login', {error: error})
   )
 })
 
 app.get('/dashboard', (req, res, next) => {
-  if (!(req.session && req.session.userId)) {
-    return res.redirect('/login')
-  }
+  if ( !(req.session && req.session.userId) ) { return res.redirect('/login') }
+
   findUser({
     type: 'id',
     value: req.session.userId
@@ -75,9 +79,7 @@ app.get('/dashboard', (req, res, next) => {
       console.log(`${results.rows[0].firstname} has logged in`)
       return res.render('dashboard')
     },
-    error => {
-      return res.render('login', {error: error})
-    }
+    error => res.render('login', {error: error})
   )
 })
 

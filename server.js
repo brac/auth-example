@@ -6,6 +6,7 @@ const pg             = require('pg')
 const app            = express()
 const sessions       = require('client-sessions')
 const bcrypt         = require('bcryptjs')
+const csurf          = require('csurf')
 const { findUser,
         createUser } = require('./database/queries')
 
@@ -17,6 +18,9 @@ app.use(sessions({
   secret: 'duffman54',
   duration: 30 * 60 * 1000 // 30 mins
 }))
+
+// const csrfProtection = csurf()
+app.use(csurf())
 
 app.use((req, res, next) => {
   if (!(req.session && req.session.userId)) {return next()}
@@ -48,7 +52,7 @@ app.get('/', (req, res) => {
 })
 
 app.get('/register', (req, res) => {
-  res.render('register')
+  res.render('register', {csrfToken: req.csrfToken() })
 })
 
 app.post('/register', (req, res) => {
@@ -56,16 +60,16 @@ app.post('/register', (req, res) => {
     results => res.redirect('/dashboard'),
     error => {
       if (error.code == "23505") {
-        res.render('register', { error: "Email is already taken"})
+        res.render('register', { csrfToken: req.csrfToken(), error: "Email is already taken"})
       } else {
-        res.render('register', {error: error})
+        res.render('register', { csrfToken: req.csrfToken(), error: error})
       }
     }
   )
 })
 
 app.get('/login', (req, res) => {
-  res.render('login')
+  res.render('login', {csrfToken: req.csrfToken() })
 })
 
 app.post('/login', (req, res) => {
@@ -74,19 +78,19 @@ app.post('/login', (req, res) => {
     value: req.body.email
   }).then(
     results => {
-      if (results.rows.length==0) { return res.render('login', {error: 'Incorrect Email / Password'}) }
+      if (results.rows.length==0) { return res.render('login', {csrfToken: req.csrfToken(), error: 'Incorrect Email / Password'}) }
 
       bcrypt.compare(req.body.password, results.rows[0].password).then(
         compared => {
-          if (!compared) {return res.render('login', {error: 'Incorrect Password'})}
+          if (!compared) {return res.render('login', {csrfToken: req.csrfToken(), error: 'Incorrect Password'})}
 
           req.session.userId = results.rows[0].id
           return res.redirect('/dashboard')
         },
-        error => res.render('login', { error: error })
+        error => res.render('login', { csrfToken: req.csrfToken(), error: error })
       )
     },
-    error => res.render('login', {error: error})
+    error => res.render('login', { csrfToken: req.csrfToken(), error: error})
   )
 })
 

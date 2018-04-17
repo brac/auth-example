@@ -9,7 +9,6 @@ const bcrypt         = require('bcryptjs')
 const { findUser,
         createUser } = require('./database/queries')
 
-
 app.set('view engine', 'pug')
 
 app.use(bodyParser.urlencoded({extended: false}))
@@ -19,6 +18,30 @@ app.use(sessions({
   duration: 30 * 60 * 1000 // 30 mins
 }))
 
+app.use((req, res, next) => {
+  if (!(req.session && req.session.userId)) {return next()}
+
+  findUser({
+    type: 'id',
+    value: req.session.userId
+  }).then(
+    results => {
+      req.user          = results.rows[0]
+      req.user.password = undefined
+      res.locals.user   = req.user
+
+      next()
+    },
+    error => next(error)
+  )
+})
+
+const loginRequired = (req, res, next) => {
+  if (!req.user) {
+    return res.redirect('/login')
+  }
+  next()
+}
 
 app.get('/', (req, res) => {
   res.render('index')
@@ -67,20 +90,9 @@ app.post('/login', (req, res) => {
   )
 })
 
-app.get('/dashboard', (req, res, next) => {
-  if ( !(req.session && req.session.userId) ) { return res.redirect('/login') }
-
-  findUser({
-    type: 'id',
-    value: req.session.userId
-  }).then(
-
-    results => {
-      console.log(`${results.rows[0].firstname} has logged in`)
-      return res.render('dashboard')
-    },
-    error => res.render('login', {error: error})
-  )
+app.get('/dashboard', loginRequired, (req, res, next) => {
+  console.log(`${req.user.firstname} has logged in`)
+  return res.render('dashboard')
 })
 
 app.listen(3000, () => {

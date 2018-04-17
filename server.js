@@ -7,6 +7,7 @@ const app            = express()
 const sessions       = require('client-sessions')
 const bcrypt         = require('bcryptjs')
 const csurf          = require('csurf')
+const helmet         = require('helmet')
 const { findUser,
         createUser } = require('./database/queries')
 
@@ -16,10 +17,14 @@ app.use(bodyParser.urlencoded({extended: false}))
 app.use(sessions({
   cookieName: 'session',
   secret: 'duffman54',
-  duration: 30 * 60 * 1000 // 30 mins
+  duration: 30 * 60 * 1000,      // 30 mins
+  activeDuration: 5 * 60 * 1000, //  5 mins
+  httpOnly: true,                // don't let JS code access cookies
+  secure: true,                  // only set cookies over https
+  ephemeral: true                // destroy cookies when the browser closes
 }))
 
-// const csrfProtection = csurf()
+app.use(helmet())
 app.use(csurf())
 
 app.use((req, res, next) => {
